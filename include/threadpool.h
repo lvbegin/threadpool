@@ -28,15 +28,19 @@ namespace threadpool {
 template <typename T, typename M>
 class Threadpool {
 public:
-	typedef std::function<void(T *, M &)> WorkerThreadBody;
-	typedef std::unique_ptr<std::thread> threadPtr;
 
-	explicit Threadpool(WorkerThreadBody body, T *threadContext, size_t poolSize, size_t waitingQueueSize);
+	typedef struct {
+		std::function<void(T *)> WorkerThreadInit;
+		std::function<void(T *, M &)> WorkerThreadBody;
+		std::function<void(T *)> WorkerThreadFinal;
+	} WorkerThreadFunctions;
+	explicit Threadpool(WorkerThreadFunctions &functions, T *threadContext, size_t poolSize, size_t waitingQueueSize);
 	~Threadpool();
 
 	void add(M &message);
 
 private:
+	typedef std::unique_ptr<std::thread> threadPtr;
 	class BoundedQueue {
 	public:
 		~BoundedQueue() = default;
@@ -99,23 +103,27 @@ private:
 		bool isTerminated;
 	};
 
-	static void threadBody(WorkerThreadBody body,  T  *context, BlockingBoundedQueue *queue) {
+	static void threadBody(WorkerThreadFunctions *functions,  T  *context, BlockingBoundedQueue *queue) {
+		if (nullptr != functions->WorkerThreadInit)
+			functions->WorkerThreadInit(context);
 		for ( ; ; ) {
 			auto message = queue->pop();
 			if (queue->isTerminatedMessage(message))
-				return ;
-			body(context, *message);
+				break;
+			functions->WorkerThreadBody(context, *message);
 		}
+		if (nullptr != functions->WorkerThreadFinal)
+			functions->WorkerThreadFinal(context);
 	}
 	std::vector<threadPtr> threads;
 	BlockingBoundedQueue pendingMessages;
 };
 
 template <typename T, typename M>
-Threadpool<T, M>::Threadpool(WorkerThreadBody body, T *threadContext, size_t poolSize, size_t waitingQueueSize) :
+Threadpool<T, M>::Threadpool(WorkerThreadFunctions &functions, T *threadContext, size_t poolSize, size_t waitingQueueSize) :
 								threads(), pendingMessages(waitingQueueSize)  {
 	for(size_t i = 0; i < poolSize; i++) {
-		threads.push_back(std::make_unique<std::thread>(threadBody, body, threadContext, &pendingMessages));
+		threads.push_back(std::make_unique<std::thread>(threadBody, &functions, threadContext, &pendingMessages));
 	}
 }
 
