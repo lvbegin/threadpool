@@ -1,0 +1,138 @@
+// Copyright 2015 Laurent Van Begin
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+#ifndef __THREADPOOL_H_
+#define __THREADPOOL_H_
+
+#include <functional>
+#include <queue>
+#include <vector>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+#include <stdexcept>
+
+namespace threadpool {
+
+template <typename T, typename M>
+class Threadpool {
+public:
+	typedef std::function<void(T *, M &)> WorkerThreadBody;
+	typedef std::unique_ptr<std::thread> threadPtr;
+
+	explicit Threadpool(WorkerThreadBody body, T *threadContext, size_t poolSize, size_t waitingQueueSize);
+	~Threadpool();
+
+	void add(M &message);
+
+private:
+	class BoundedQueue {
+	public:
+		~BoundedQueue() = default;
+
+		bool push(M &newValue) {
+			if (maxSize == content.size())
+				return false;
+			content.push(&newValue);
+			return true;
+		}
+		M *pop(void) {
+			if (0 == content.size())
+				return NULL;
+			auto value = content.front();
+			content.pop();
+			return value;
+		}
+	protected:
+		BoundedQueue(size_t maxValues) : content(), maxSize(maxValues) { }
+	private:
+		std::queue<M *> content;
+		const size_t maxSize;
+	};
+
+	class BlockingBoundedQueue : private BoundedQueue {
+	public:
+		BlockingBoundedQueue(size_t maxValues) : BoundedQueue(maxValues), isTerminated(false) { }
+		~BlockingBoundedQueue() = default;
+
+		bool push(M &newValue) {
+			std::unique_lock<std::mutex> lock(mutex);
+			if (isTerminated)
+				throw new std::runtime_error("Cannot push in terminated queue.");
+			const auto rc = BoundedQueue::push(newValue);
+			if (rc)
+				condition.notify_one();
+			return rc;
+		}
+		M *pop(void) {
+			std::unique_lock<std::mutex> lock(mutex);
+			for ( ; ; ) {
+				auto value = BoundedQueue::pop();
+				if (nullptr != value || isTerminated)
+					return value;
+				condition.wait(lock);
+			}
+		}
+		void terminate() {
+			std::unique_lock<std::mutex> lock(mutex);
+			isTerminated = true;
+			condition.notify_all();
+		}
+		bool isTerminatedMessage(M *message) {
+			return (nullptr == message);
+		}
+
+	private:
+		std::mutex mutex;
+		std::condition_variable condition;
+		bool isTerminated;
+	};
+
+	static void threadBody(WorkerThreadBody body,  T  *context, BlockingBoundedQueue *queue) {
+		for ( ; ; ) {
+			auto message = queue->pop();
+			if (queue->isTerminatedMessage(message))
+				return ;
+			body(context, *message);
+		}
+	}
+	std::vector<threadPtr> threads;
+	BlockingBoundedQueue pendingMessages;
+};
+
+template <typename T, typename M>
+Threadpool<T, M>::Threadpool(WorkerThreadBody body, T *threadContext, size_t poolSize, size_t waitingQueueSize) :
+								threads(), pendingMessages(waitingQueueSize)  {
+	for(size_t i = 0; i < poolSize; i++) {
+		threads.push_back(std::make_unique<std::thread>(threadBody, body, threadContext, &pendingMessages));
+	}
+}
+
+template <typename T, typename M>
+Threadpool<T, M>::~Threadpool() {
+	pendingMessages.terminate();
+	for (auto& elem : threads) {
+		elem->join();
+	}
+	threads.resize(0);
+}
+
+template <typename T, typename M>
+void Threadpool<T, M>::add(M &message) {
+	pendingMessages.push(message);
+}
+
+};
+
+#endif
