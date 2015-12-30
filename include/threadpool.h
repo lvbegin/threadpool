@@ -141,6 +141,6 @@ void Threadpool<T, M>::add(M &message) {
 	pendingMessages.push(message);
 }
 
-};
+}
 
 #endif
