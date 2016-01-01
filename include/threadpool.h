@@ -73,7 +73,7 @@ private:
 		bool push(M &newValue) {
 			std::unique_lock<std::mutex> lock(mutex);
 			if (isTerminated)
-				throw new std::runtime_error("Cannot push in terminated queue.");
+				throw std::runtime_error("Cannot push in terminated queue.");
 			const auto rc = BoundedQueue::push(newValue);
 			if (rc)
 				condition.notify_one();
