@@ -108,7 +108,7 @@ private:
 			isTerminated = true;
 			condition.notify_all();
 		}
-		bool isTerminatedMessage(M *message) {
+		bool isTerminatedMessage(const M *message) {
 			return (nullptr == message);
 		}
 
