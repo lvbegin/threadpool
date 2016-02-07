@@ -86,7 +86,7 @@ private:
 		~ThreadSafeBoundedQueue() = default;
 
 		bool push(M &newValue) {
-			std::unique_lock<std::mutex> lock(mutex);
+			std::lock_guard<std::mutex> lock(mutex);
 			if (isTerminated)
 				throw std::runtime_error("Cannot push in terminated queue.");
 			const auto rc = BoundedQueue::push(newValue);
@@ -104,11 +104,11 @@ private:
 			}
 		}
 		void terminate() {
-			std::unique_lock<std::mutex> lock(mutex);
+			std::lock_guard<std::mutex> lock(mutex);
 			isTerminated = true;
 			condition.notify_all();
 		}
-		bool isTerminatedMessage(const M *message) const {
+		static bool isTerminatedMessage(const M *message) {
 			return (nullptr == message);
 		}
 
