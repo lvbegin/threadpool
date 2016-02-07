@@ -23,5 +23,6 @@ C_UPPER_DEPS :=
 
 # Every subdirectory with source files must be described here
 SUBDIRS := \
+workspace-threadpool/.metadata/.plugins/org.eclipse.cdt.make.core \
 test \
 
