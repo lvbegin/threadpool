@@ -80,10 +80,10 @@ private:
 		const size_t maxSize;
 	};
 
-	class BlockingBoundedQueue : private BoundedQueue {
+	class ThreadSafeBoundedQueue : private BoundedQueue {
 	public:
-		BlockingBoundedQueue(size_t maxValues) : BoundedQueue(maxValues), isTerminated(false) { }
-		~BlockingBoundedQueue() = default;
+		ThreadSafeBoundedQueue(size_t maxValues) : BoundedQueue(maxValues), isTerminated(false) { }
+		~ThreadSafeBoundedQueue() = default;
 
 		bool push(M &newValue) {
 			std::unique_lock<std::mutex> lock(mutex);
@@ -118,7 +118,7 @@ private:
 		bool isTerminated;
 	};
 
-	static void threadBody(WorkerThreadFunctions *functions,  T  *context, BlockingBoundedQueue *queue) {
+	static void threadBody(WorkerThreadFunctions *functions,  T  *context, ThreadSafeBoundedQueue *queue) {
 		if (nullptr != functions->WorkerThreadInit)
 			functions->WorkerThreadInit(context);
 		for ( ; ; ) {
@@ -131,7 +131,7 @@ private:
 			functions->WorkerThreadFinal(context);
 	}
 	std::vector<threadPtr> threads;
-	BlockingBoundedQueue pendingMessages;
+	ThreadSafeBoundedQueue pendingMessages;
 };
 
 template <typename T, typename M>
