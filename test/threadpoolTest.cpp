@@ -8,7 +8,7 @@ using namespace threadpool;
 class TestThreadBody__no_thread_context {
 
 public:
-	TestThreadBody__no_thread_context() {}
+	TestThreadBody__no_thread_context() = default;
 	~TestThreadBody__no_thread_context() = default;
 
 	void operator() (void *context, std::string &message)
@@ -61,8 +61,7 @@ void finalFunction(void *)
 static void executeThreadPool__no_thread_context(int nbMessages)
 {
 	TestThreadBody__no_thread_context body;
-	Threadpool<void, std::string>::WorkerThreadFunctions functions  { nullptr, body, nullptr };
-	Threadpool<void, std::string> t(functions, nullptr, 5, nbMessages);
+	Threadpool<void, std::string> t(Threadpool<void, std::string>::doNothing, body, Threadpool<void, std::string>::doNothing, nullptr, 5, nbMessages);
 	for (int i = 0; i < nbMessages; i++)
 		t.add(TestThreadBody__no_thread_context::reference_message);
 }
@@ -70,15 +69,13 @@ static void executeThreadPool__no_thread_context(int nbMessages)
 static void executeThreadPool__init_and_final_but_no_thread_context(int nbMessages)
 {
 	TestThreadBody__no_thread_context body;
-	Threadpool<void, std::string>::WorkerThreadFunctions functions { initFunction, body, finalFunction };
-	Threadpool<void, std::string> t(functions, nullptr, 5, nbMessages);
+	Threadpool<void, std::string> t( initFunction, body, finalFunction, nullptr, 5, nbMessages);
 }
 
 static void executeThreadPool__with_thread_context(int nbMessages)
 {
 	TestThreadBody__with_thread_context body;
-	Threadpool<std::string, std::string>::WorkerThreadFunctions functions { nullptr, body, nullptr };
-	Threadpool<std::string, std::string> t(functions, &TestThreadBody__with_thread_context::reference_context, 5, nbMessages);
+	Threadpool<std::string, std::string> t(Threadpool<void, std::string>::doNothing, body, Threadpool<void, std::string>::doNothing, &TestThreadBody__with_thread_context::reference_context, 5, nbMessages);
 	for (int i = 0; i < nbMessages; i++)
 		t.add(TestThreadBody__with_thread_context::reference_message);
 }

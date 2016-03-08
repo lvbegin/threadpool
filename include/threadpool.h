@@ -43,17 +43,16 @@ namespace threadpool {
 template <typename T, typename M>
 class Threadpool {
 public:
+	typedef std::function<void(T *)> initFunction;
+	typedef std::function<void(T *, M &)> bodyFunction;
+	typedef std::function<void(T *)> finalFunction;
 
-	typedef struct {
-		std::function<void(T *)> WorkerThreadInit;
-		std::function<void(T *, M &)> WorkerThreadBody;
-		std::function<void(T *)> WorkerThreadFinal;
-	} WorkerThreadFunctions;
-	explicit Threadpool(WorkerThreadFunctions &functions, T *threadContext, size_t poolSize, size_t waitingQueueSize);
+	explicit Threadpool(initFunction init, bodyFunction body, finalFunction final
+			, T *threadContext, unsigned int poolSize, size_t waitingQueueSize);
 	~Threadpool();
 
 	void add(M &message);
-
+	static const std::function<void (T*)> doNothing;
 private:
 	typedef std::unique_ptr<std::thread> threadPtr;
 	class BoundedQueue {
@@ -118,28 +117,31 @@ private:
 		bool isTerminated;
 	};
 
-	static void threadBody(WorkerThreadFunctions *functions,  T  *context, ThreadSafeBoundedQueue *queue) {
-		if (nullptr != functions->WorkerThreadInit)
-			functions->WorkerThreadInit(context);
+	static void threadBody(initFunction init, bodyFunction body, finalFunction final,  T  *context, ThreadSafeBoundedQueue *queue) {
+		init(context);
 		for ( ; ; ) {
 			auto message = queue->pop();
 			if (queue->isTerminatedMessage(message))
 				break;
-			functions->WorkerThreadBody(context, *message);
+			body(context, *message);
 		}
-		if (nullptr != functions->WorkerThreadFinal)
-			functions->WorkerThreadFinal(context);
+		final(context);
 	}
 	std::vector<threadPtr> threads;
 	ThreadSafeBoundedQueue pendingMessages;
 };
 
 template <typename T, typename M>
-Threadpool<T, M>::Threadpool(WorkerThreadFunctions &functions, T *threadContext, size_t poolSize, size_t waitingQueueSize) :
-								threads(), pendingMessages(waitingQueueSize)  {
+const std::function<void (T*)> Threadpool<T, M>::doNothing = [](T *) { };
+
+template <typename T, typename M>
+Threadpool<T, M>::Threadpool(initFunction init, bodyFunction body, finalFunction final
+		, T *threadContext, unsigned int poolSize, size_t waitingQueueSize) :
+										threads(), pendingMessages(waitingQueueSize) {
 	for(size_t i = 0; i < poolSize; i++) {
-		threads.push_back(std::make_unique<std::thread>(threadBody, &functions, threadContext, &pendingMessages));
+		threads.push_back(std::make_unique<std::thread>(threadBody, init, body, final, threadContext, &pendingMessages));
 	}
+
 }
 
 template <typename T, typename M>
