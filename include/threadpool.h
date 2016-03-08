@@ -27,8 +27,8 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
   */
 
-#ifndef __THREADPOOL_H_
-#define __THREADPOOL_H_
+#ifndef THREADPOOL_H_
+#define THREADPOOL_H_
 
 #include <functional>
 #include <queue>
