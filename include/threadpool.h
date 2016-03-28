@@ -30,11 +30,6 @@
 #ifndef THREADPOOL_H_
 #define THREADPOOL_H_
 
-#include <vector>
-#include <thread>
-#include <mutex>
-#include <algorithm>
-
 #include <queue.h>
 #include <threadBody.h>
 #include <threadCache.h>
