@@ -1,4 +1,3 @@
-#include <threadpool.h>
 #include <iostream>
 #include <atomic>
 
@@ -7,6 +6,7 @@
  * 2. improve tests by add test on counters.
  */
 
+#include <threadpool.h>
 #include <threadCache.h>
 
 using namespace threadpool;
