@@ -45,19 +45,14 @@ template <typename M>
 class Threadpool {
 public:
 	explicit Threadpool(initFunction init, bodyFunction<M> body, finalFunction final, unsigned int poolSize, size_t waitingQueueSize) :
-						pendingMessages(waitingQueueSize), threads() {
-		for(size_t i = 0; i < poolSize; i++) {
-			threads.push_back(std::make_unique<std::thread>(ThreadBody::run<M>,init, body, final, &pendingMessages));
-		}
+						cache(new ThreadCache(poolSize)), pendingMessages(new ThreadSafeBoundedQueue<M>(waitingQueueSize)) {
+		cache->get(poolSize, init, body, final, pendingMessages);
 	}
-	~Threadpool() {
-		pendingMessages.terminate();
-		std::for_each(threads.begin(), threads.end(), [](std::unique_ptr<std::thread> &t) { t->join(); });
-	}
-	void add(M &message) { pendingMessages.push(message); }
+	~Threadpool() { pendingMessages->terminate(); }
+	void add(M &message) { pendingMessages->push(message); }
 private:
-	ThreadSafeBoundedQueue<M> pendingMessages;
-	std::vector<std::unique_ptr<std::thread>> threads;
+	std::unique_ptr<ThreadCache> cache;
+	std::shared_ptr<ThreadSafeBoundedQueue<M>> pendingMessages;
 };
 
 template <typename M>

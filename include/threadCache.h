@@ -56,7 +56,7 @@ public:
 		condition.wait(lock, [this]() { return size == threads.size(); });
 	}
 	template <typename M>
-	void get(unsigned int nbThreads, initFunction init, bodyFunction<M> body, finalFunction final, std::shared_ptr<ThreadSafeBoundedQueue<M>> queue) {
+	void get(unsigned int nbThreads, initFunction init, bodyFunction<M> body, finalFunction final, std::shared_ptr<ThreadSafeBoundedQueue<M>> &queue) {
 		std::unique_lock<std::mutex> lock(mutex);
 
 		if (nbThreads > size)
@@ -64,7 +64,7 @@ public:
 		condition.wait(lock, [this, nbThreads]() { return nbThreads <= threads.size(); } );
 		for (unsigned int i = 0; i < nbThreads; i++) {
 			auto &thread = threads.front();
-			thread->setParameters(init, body, final, std::move(queue));
+			thread->setParameters(init, body, final, queue);
 			thread.release();
 			threads.pop();
 		}
