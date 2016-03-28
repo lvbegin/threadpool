@@ -1,4 +1,4 @@
-/* Copyright 2015 Laurent Van Begin
+/* Copyright 2016 Laurent Van Begin
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -27,53 +27,41 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
   */
 
-#ifndef THREADPOOL_H_
-#define THREADPOOL_H_
-
-#include <vector>
-#include <thread>
-#include <mutex>
-#include <algorithm>
+#ifndef ABSTRACT_THREAD_H__
+#define ABSTRACT_THREAD_H__
 
 #include <queue.h>
-#include <threadBody.h>
-#include <threadCache.h>
 
 namespace threadpool {
 
+typedef std::function<void()> initFunction;
+
 template <typename M>
-class Threadpool {
+using bodyFunction = std::function<void(M &)>;
+
+typedef std::function<void()> finalFunction;
+
+class ThreadBody {
 public:
-	explicit Threadpool(initFunction init, bodyFunction<M> body, finalFunction final, unsigned int poolSize, size_t waitingQueueSize) :
-						pendingMessages(waitingQueueSize), threads() {
-		for(size_t i = 0; i < poolSize; i++) {
-			threads.push_back(std::make_unique<std::thread>(ThreadBody::run<M>,init, body, final, &pendingMessages));
+	ThreadBody() = delete;
+	~ThreadBody() = delete;
+
+	template <typename M>
+	static void run(initFunction init, bodyFunction<M> body, finalFunction final, ThreadSafeBoundedQueue<M> *queue) { runByRef(init, body, final,  queue); }
+
+	template <typename M>
+	static void runByRef(const initFunction &init, const bodyFunction<M> &body, const finalFunction &final, ThreadSafeBoundedQueue<M> *queue) {
+		init();
+		for ( ; ; ) {
+			auto message = queue->pop();
+			if (queue->isTerminatedMessage(message))
+				break;
+			body(*message);
 		}
+		final();
 	}
-	~Threadpool() {
-		pendingMessages.terminate();
-		std::for_each(threads.begin(), threads.end(), [](std::unique_ptr<std::thread> &t) { t->join(); });
-	}
-	void add(M &message) { pendingMessages.push(message); }
-private:
-	ThreadSafeBoundedQueue<M> pendingMessages;
-	std::vector<std::unique_ptr<std::thread>> threads;
-};
 
-template <typename M>
-class TemporaryThreadpool {
-public:
-	explicit TemporaryThreadpool(initFunction init, bodyFunction<M> body, finalFunction final, unsigned int poolSize, size_t waitingQueueSize, ThreadCache &cache) :
-								pendingMessages(new ThreadSafeBoundedQueue<M>(waitingQueueSize)) {
-		cache.get(poolSize, init, body, final, pendingMessages);
-	}
-	~TemporaryThreadpool() { pendingMessages->terminate(); }
-	void add(M &message) { pendingMessages->push(message); }
-private:
-	std::shared_ptr<ThreadSafeBoundedQueue<M>> pendingMessages;
 };
-
-static const std::function<void ()> doNothing = []() { };
 
 }
 
