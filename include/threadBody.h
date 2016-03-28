@@ -47,10 +47,7 @@ public:
 	~ThreadBody() = delete;
 
 	template <typename M>
-	static void run(initFunction init, bodyFunction<M> body, finalFunction final, ThreadSafeBoundedQueue<M> *queue) { runByRef(init, body, final,  queue); }
-
-	template <typename M>
-	static void runByRef(const initFunction &init, const bodyFunction<M> &body, const finalFunction &final, ThreadSafeBoundedQueue<M> *queue) {
+	static void run(const initFunction &init, const bodyFunction<M> &body, const finalFunction &final, ThreadSafeBoundedQueue<M> *queue) {
 		init();
 		for ( ; ; ) {
 			auto message = queue->pop();

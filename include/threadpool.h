@@ -48,23 +48,14 @@ public:
 						cache(new ThreadCache(poolSize)), pendingMessages(new ThreadSafeBoundedQueue<M>(waitingQueueSize)) {
 		cache->get(poolSize, init, body, final, pendingMessages);
 	}
+	explicit Threadpool(initFunction init, bodyFunction<M> body, finalFunction final, unsigned int poolSize, size_t waitingQueueSize, ThreadCache &threadCache) :
+								cache(), pendingMessages(new ThreadSafeBoundedQueue<M>(waitingQueueSize)) {
+		threadCache.get(poolSize, init, body, final, pendingMessages);
+	}
 	~Threadpool() { pendingMessages->terminate(); }
 	void add(M &message) { pendingMessages->push(message); }
 private:
 	std::unique_ptr<ThreadCache> cache;
-	std::shared_ptr<ThreadSafeBoundedQueue<M>> pendingMessages;
-};
-
-template <typename M>
-class TemporaryThreadpool {
-public:
-	explicit TemporaryThreadpool(initFunction init, bodyFunction<M> body, finalFunction final, unsigned int poolSize, size_t waitingQueueSize, ThreadCache &cache) :
-								pendingMessages(new ThreadSafeBoundedQueue<M>(waitingQueueSize)) {
-		cache.get(poolSize, init, body, final, pendingMessages);
-	}
-	~TemporaryThreadpool() { pendingMessages->terminate(); }
-	void add(M &message) { pendingMessages->push(message); }
-private:
 	std::shared_ptr<ThreadSafeBoundedQueue<M>> pendingMessages;
 };
 

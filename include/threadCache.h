@@ -85,7 +85,7 @@ private:
 		void setParameters(initFunction init, bodyFunction<M> body, finalFunction final, std::shared_ptr<ThreadSafeBoundedQueue<M>> queue) {
 			std::lock_guard<std::mutex> lock(mutex);
 
-			threadBody = [this, i = std::move(init), b = std::move(body), f = std::move(final), q = std::move(queue)]() { ThreadBody::runByRef(*(&i), *(&b), *(&f), q.get()); };
+			threadBody = [this, i = std::move(init), b = std::move(body), f = std::move(final), q = std::move(queue)]() { ThreadBody::run(*(&i), *(&b), *(&f), q.get()); };
 			condition.notify_one();
 		}
 	private:

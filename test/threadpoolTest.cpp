@@ -59,7 +59,7 @@ static void Cache__basic(int nbMessages)
 {
 	TestThreadBody__no_thread_context body;
 	ThreadCache cache(2);
-	TemporaryThreadpool<std::string> t(init, body, final, 1, nbMessages, cache);
+	Threadpool<std::string> t(init, body, final, 1, nbMessages, cache);
 	for (int i = 0; i < nbMessages; i++)
 		t.add(TestThreadBody__no_thread_context::reference_message);
 }
