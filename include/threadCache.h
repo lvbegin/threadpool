@@ -44,7 +44,7 @@ public:
 			std::lock_guard<std::mutex> lock(mutex);
 
 			threads.push(std::unique_ptr<Thread>(t));
-			if (this->size == threads.size())
+			if (threads.size() == this->size)
 				condition.notify_one();
 		};
 		for (unsigned int i = 0; i < size; i++)
