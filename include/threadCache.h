@@ -50,7 +50,7 @@ public:
 		for (unsigned int i = 0; i < size; i++)
 			threads.push(std::make_unique<Thread>(registration));
 	}
-	~ThreadCache() {
+	~ThreadCache(void) {
 		std::unique_lock<std::mutex> lock(mutex);
 
 		condition.wait(lock, [this]() { return threads.size() == size; });
@@ -77,7 +77,7 @@ private:
 
 			condition.wait(lock, [this]() { return threadState::INITIALIZED == state; });
 		}
-		~Thread() {
+		~Thread(void) {
 			terminateThread();
 			thread.join();
 		};
@@ -91,13 +91,13 @@ private:
 	private:
 		enum class threadState { NOT_INITIALIZED, INITIALIZED, FINALIZED, };
 
-		void terminateThread() {
+		void terminateThread(void) {
 			std::lock_guard<std::mutex> lock(mutex);
 
 			state = threadState::FINALIZED;
 			condition.notify_one();
 		}
-		void cacheThreadBody() {
+		void cacheThreadBody(void) {
 			std::unique_lock<std::mutex> lock(mutex);
 
 			state = threadState::INITIALIZED;

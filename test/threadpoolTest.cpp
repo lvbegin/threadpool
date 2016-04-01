@@ -74,4 +74,5 @@ int main()
 	executeThreadPool__no_thread_context(nbMessages);
 	executeThreadPool__init_and_final(nbMessages);
 	executeThreadPool__use_external_thread_cache(nbMessages);
+	return EXIT_SUCCESS;
 }
