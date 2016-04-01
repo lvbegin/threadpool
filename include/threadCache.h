@@ -53,7 +53,7 @@ public:
 	~ThreadCache() {
 		std::unique_lock<std::mutex> lock(mutex);
 
-		condition.wait(lock, [this]() { return size == threads.size(); });
+		condition.wait(lock, [this]() { return threads.size() == size; });
 	}
 	template <typename M>
 	void get(unsigned int nbThreads, initFunction init, bodyFunction<M> body, finalFunction final, std::shared_ptr<ThreadSafeBoundedQueue<M>> &queue) {
@@ -61,7 +61,7 @@ public:
 
 		if (nbThreads > size)
 			throw std::runtime_error("too much threads asked to cache");
-		condition.wait(lock, [this, nbThreads]() { return nbThreads <= threads.size(); } );
+		condition.wait(lock, [this, nbThreads]() { return threads.size() >= nbThreads; } );
 		for (unsigned int i = 0; i < nbThreads; i++) {
 			auto &thread = threads.front();
 			thread->setParameters(init, body, final, queue);
