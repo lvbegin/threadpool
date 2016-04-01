@@ -39,12 +39,12 @@ namespace threadpool {
 
 class ThreadCache {
 public:
-	ThreadCache(unsigned int size) : size(size) {
+	ThreadCache(unsigned int nbThread) : size(nbThread) {
 		const auto registration = [this](Thread *t) {
 			std::lock_guard<std::mutex> lock(mutex);
 
 			threads.push(std::unique_ptr<Thread>(t));
-			if (threads.size() == this->size)
+			if (threads.size() == size)
 				condition.notify_one();
 		};
 		for (unsigned int i = 0; i < size; i++)
