@@ -40,18 +40,38 @@ template <typename M>
 class Threadpool {
 public:
 	explicit Threadpool(initFunction init, bodyFunction<M> body, finalFunction final, unsigned int poolSize, size_t waitingQueueSize) :
-						cache(new ThreadCache(poolSize)), pendingMessages(new ThreadSafeBoundedQueue<M>(waitingQueueSize)) {
-		cache->get(poolSize, init, body, final, pendingMessages);
+						cache(new ThreadCache(poolSize)), pendingMessages(new ThreadSafeBoundedQueue<M>(waitingQueueSize)), nbThreads(0) {
+		initializeThreads(init, body, final, poolSize, *cache);
 	}
 	explicit Threadpool(initFunction init, bodyFunction<M> body, finalFunction final, unsigned int poolSize, size_t waitingQueueSize, ThreadCache &threadCache) :
-								cache(), pendingMessages(new ThreadSafeBoundedQueue<M>(waitingQueueSize)) {
-		threadCache.get(poolSize, init, body, final, pendingMessages);
+								cache(), pendingMessages(new ThreadSafeBoundedQueue<M>(waitingQueueSize)), nbThreads(poolSize) {
+		initializeThreads(init, body, final, poolSize, threadCache);
 	}
-	~Threadpool() { pendingMessages->terminate(); }
+	~Threadpool() {
+		std::unique_lock<std::mutex> lock(mutex);
+
+		pendingMessages->terminate();
+		allMessageTreated.wait(lock, [this]() { return (0 == nbThreads); });
+	}
 	void add(M &message) { pendingMessages->push(message); }
 private:
-	std::unique_ptr<ThreadCache> cache;
-	std::shared_ptr<ThreadSafeBoundedQueue<M>> pendingMessages;
+	void initializeThreads(initFunction init, bodyFunction<M> body, finalFunction final, unsigned int poolSize, ThreadCache &cache) {
+		auto termination = [this, final]() {
+			final();
+			std::unique_lock<std::mutex> lock(mutex);
+
+			nbThreads --;
+			if (0 == nbThreads)
+				allMessageTreated.notify_one();
+			};
+			cache.get(poolSize, init, body, termination, pendingMessages);
+
+	}
+	std::unique_ptr<ThreadCache> cache; //useless
+	std::shared_ptr<ThreadSafeBoundedQueue<M>> pendingMessages; //need shared ptr if synchronize in another manner ?
+	unsigned int nbThreads;         //to synchronize on termination
+	std::condition_variable allMessageTreated;
+	std::mutex mutex;
 };
 
 static const std::function<void ()> doNothing = []() { };
