@@ -5,6 +5,8 @@
 #include <threadpool.h>
 #include <threadCache.h>
 
+#include <map.h>
+
 using namespace threadpool;
 
 static void executeThreadPool__no_thread_context(int nbMessages)
@@ -68,11 +70,36 @@ static void executeThreadPool__use_external_thread_cache(int nbMessages)
 		std::cout << "NOK" << std::endl;
 }
 
+static void test_map(void)
+{
+	std::cout << "Test implementation of map operator: ";
+
+	bool conclusion = true;
+	std::vector<int> v(100, 0);
+	ThreadCache cache(10); //how to ensure that threads terminated their job ?
+	map<int>(v, [](int &i) { i++;}, cache);
+
+//	for (size_t i = 0; i < v.size(); i++)
+//		std::cout << v[i] << std::endl;
+//
+	for (size_t i = 0; i < v.size(); i++)
+		if  (1 != v[i]) {
+			std::cout << "i = " << i << ", v[i] = " << v[i] << std::endl;
+			conclusion = false;
+		}
+	if (conclusion)
+		std::cout << "OK" << std::endl;
+	else
+		std::cout << "NOK" << std::endl;
+}
+
 int main()
 {
 	static const int nbMessages = 100000;
 	executeThreadPool__no_thread_context(nbMessages);
 	executeThreadPool__init_and_final(nbMessages);
 	executeThreadPool__use_external_thread_cache(nbMessages);
+
+	test_map();
 	return EXIT_SUCCESS;
 }
