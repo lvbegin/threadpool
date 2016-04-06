@@ -56,8 +56,8 @@ public:
 	void add(M &message) { pendingMessages.push(message); }
 private:
 	void initializeThreads(initFunction init, bodyFunction<M> body, finalFunction final, unsigned int poolSize, ThreadCache &cache) {
-		auto termination = [this, final]() {
-			final();
+		auto termination = [this, f = std::move(final)]() {
+			f();
 			std::unique_lock<std::mutex> lock(mutex);
 
 			nbThreads --;
