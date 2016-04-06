@@ -40,7 +40,7 @@ template <typename M>
 class Threadpool {
 public:
 	explicit Threadpool(initFunction init, bodyFunction<M> body, finalFunction final, unsigned int poolSize, size_t waitingQueueSize) :
-						cache(new ThreadCache(poolSize)), pendingMessages(waitingQueueSize), nbThreads(0) {
+						cache(new ThreadCache(poolSize)), pendingMessages(waitingQueueSize), nbThreads(poolSize) {
 		initializeThreads(init, body, final, poolSize, *cache);
 	}
 	explicit Threadpool(initFunction init, bodyFunction<M> body, finalFunction final, unsigned int poolSize, size_t waitingQueueSize, ThreadCache &threadCache) :
