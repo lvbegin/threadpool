@@ -63,13 +63,13 @@ private:
 			nbThreads --;
 			if (0 == nbThreads)
 				allMessageTreated.notify_one();
-			};
-			cache.get(poolSize, init, body, termination, pendingMessages);
+		};
+		cache.get(poolSize, init, body, termination, pendingMessages);
 
 	}
-	std::unique_ptr<ThreadCache> cache; //useless
-	std::shared_ptr<ThreadSafeBoundedQueue<M>> pendingMessages; //need shared ptr if synchronize in another manner ?
-	unsigned int nbThreads;         //to synchronize on termination
+	std::unique_ptr<ThreadCache> cache;
+	std::shared_ptr<ThreadSafeBoundedQueue<M>> pendingMessages;
+	unsigned int nbThreads;
 	std::condition_variable allMessageTreated;
 	std::mutex mutex;
 };
