@@ -40,20 +40,20 @@ template <typename M>
 class Threadpool {
 public:
 	explicit Threadpool(initFunction init, bodyFunction<M> body, finalFunction final, unsigned int poolSize, size_t waitingQueueSize) :
-						cache(new ThreadCache(poolSize)), pendingMessages(new ThreadSafeBoundedQueue<M>(waitingQueueSize)), nbThreads(0) {
+						cache(new ThreadCache(poolSize)), pendingMessages(waitingQueueSize), nbThreads(0) {
 		initializeThreads(init, body, final, poolSize, *cache);
 	}
 	explicit Threadpool(initFunction init, bodyFunction<M> body, finalFunction final, unsigned int poolSize, size_t waitingQueueSize, ThreadCache &threadCache) :
-								cache(), pendingMessages(new ThreadSafeBoundedQueue<M>(waitingQueueSize)), nbThreads(poolSize) {
+								cache(), pendingMessages(waitingQueueSize), nbThreads(poolSize) {
 		initializeThreads(init, body, final, poolSize, threadCache);
 	}
 	~Threadpool() {
 		std::unique_lock<std::mutex> lock(mutex);
 
-		pendingMessages->terminate();
+		pendingMessages.terminate();
 		allMessageTreated.wait(lock, [this]() { return (0 == nbThreads); });
 	}
-	void add(M &message) { pendingMessages->push(message); }
+	void add(M &message) { pendingMessages.push(message); }
 private:
 	void initializeThreads(initFunction init, bodyFunction<M> body, finalFunction final, unsigned int poolSize, ThreadCache &cache) {
 		auto termination = [this, final]() {
@@ -68,7 +68,7 @@ private:
 
 	}
 	std::unique_ptr<ThreadCache> cache;
-	std::shared_ptr<ThreadSafeBoundedQueue<M>> pendingMessages;
+	ThreadSafeBoundedQueue<M> pendingMessages;
 	unsigned int nbThreads;
 	std::condition_variable allMessageTreated;
 	std::mutex mutex;

@@ -56,7 +56,7 @@ public:
 		condition.wait(lock, [this]() { return threads.size() == size; });
 	}
 	template <typename M>
-	void get(unsigned int nbThreads, initFunction init, bodyFunction<M> body, finalFunction final, std::shared_ptr<ThreadSafeBoundedQueue<M>> &queue) {
+	void get(unsigned int nbThreads, initFunction init, bodyFunction<M> body, finalFunction final, ThreadSafeBoundedQueue<M> &queue) {
 		std::unique_lock<std::mutex> lock(mutex);
 
 		if (nbThreads > size)
@@ -82,10 +82,10 @@ private:
 			thread.join();
 		};
 		template <typename M>
-		void setParameters(initFunction init, bodyFunction<M> body, finalFunction final, std::shared_ptr<ThreadSafeBoundedQueue<M>> queue) {
+		void setParameters(initFunction init, bodyFunction<M> body, finalFunction final, ThreadSafeBoundedQueue<M> &queue) {
 			std::lock_guard<std::mutex> lock(mutex);
 
-			threadBody = [this, i = std::move(init), b = std::move(body), f = std::move(final), q = std::move(queue)]() { ThreadBody::run(*(&i), *(&b), *(&f), q.get()); };
+			threadBody = [this, i = std::move(init), b = std::move(body), f = std::move(final), &queue]() { ThreadBody::run(*(&i), *(&b), *(&f), &queue); };
 			condition.notify_one();
 		}
 	private:
