@@ -32,6 +32,7 @@
 
 #include <thread>
 #include <mutex>
+#include <algorithm>
 
 namespace threadpool {
 
@@ -68,11 +69,9 @@ public:
 		if (nbThreads > size)
 			throw std::runtime_error("too much threads asked to cache");
 		threadPutBackInCache.wait(lock, [this, nbThreads]() { return threads.size() >= nbThreads; } );
-		for (unsigned int i = 0; i < nbThreads; i++) {
-			threads.back()->setParameters(init, body, final, queue);
-			threads.back().release();
-			threads.pop_back();
-		}
+		std::for_each(threads.end() - nbThreads, threads.end(),
+			[i = std::move(init), b = std::move(body), f = std::move(final), &queue](auto &t){ t->setParameters(i, b, f, queue); t.release(); });
+		threads.erase(threads.end() - nbThreads, threads.end());
 	}
 private:
 	class Thread {
