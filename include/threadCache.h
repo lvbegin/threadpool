@@ -49,12 +49,12 @@ public:
 		const auto registration = [this](Thread *t) {
 			std::lock_guard<std::mutex> lock(mutex);
 
-			threads.push(std::unique_ptr<Thread>(t));
+			threads.push_back(std::unique_ptr<Thread>(t));
 			if (threads.size() == size)
 				threadPutBackInCache.notify_one();
 		};
 		for (unsigned int i = 0; i < size; i++)
-			threads.push(std::make_unique<Thread>(registration));
+			threads.push_back(std::make_unique<Thread>(registration));
 	}
 	~ThreadCache(void) {
 		std::unique_lock<std::mutex> lock(mutex);
@@ -69,9 +69,9 @@ public:
 			throw std::runtime_error("too much threads asked to cache");
 		threadPutBackInCache.wait(lock, [this, nbThreads]() { return threads.size() >= nbThreads; } );
 		for (unsigned int i = 0; i < nbThreads; i++) {
-			threads.front()->setParameters(init, body, final, queue);
-			threads.front().release();
-			threads.pop();
+			threads.back()->setParameters(init, body, final, queue);
+			threads.back().release();
+			threads.pop_back();
 		}
 	}
 private:
@@ -134,10 +134,10 @@ private:
 		std::function<void ()> threadBody;
 	};
 
-	const unsigned int size;
 	std::mutex mutex;
 	std::condition_variable threadPutBackInCache;
-	std::queue<std::unique_ptr<Thread>> threads;
+	const unsigned int size;
+	std::vector<std::unique_ptr<Thread>> threads;
 };
 
 }
