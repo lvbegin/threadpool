@@ -33,9 +33,15 @@
 #include <thread>
 #include <mutex>
 
-#include <threadBody.h>
-
 namespace threadpool {
+
+typedef std::function<void()> initFunction;
+
+template <typename M>
+using bodyFunction = std::function<void(M &)>;
+
+typedef std::function<void()> finalFunction;
+
 
 class ThreadCache {
 public:
@@ -45,7 +51,7 @@ public:
 
 			threads.push(std::unique_ptr<Thread>(t));
 			if (threads.size() == size)
-				condition.notify_one();
+				threadPutBackInCache.notify_one();
 		};
 		for (unsigned int i = 0; i < size; i++)
 			threads.push(std::make_unique<Thread>(registration));
@@ -53,7 +59,7 @@ public:
 	~ThreadCache(void) {
 		std::unique_lock<std::mutex> lock(mutex);
 
-		condition.wait(lock, [this]() { return threads.size() == size; });
+		threadPutBackInCache.wait(lock, [this]() { return threads.size() == size; });
 	}
 	template <typename M>
 	void get(unsigned int nbThreads, initFunction init, bodyFunction<M> body, finalFunction final, ThreadSafeBoundedQueue<M> &queue) {
@@ -61,7 +67,7 @@ public:
 
 		if (nbThreads > size)
 			throw std::runtime_error("too much threads asked to cache");
-		condition.wait(lock, [this, nbThreads]() { return threads.size() >= nbThreads; } );
+		threadPutBackInCache.wait(lock, [this, nbThreads]() { return threads.size() >= nbThreads; } );
 		for (unsigned int i = 0; i < nbThreads; i++) {
 			auto &thread = threads.front();
 			thread->setParameters(init, body, final, queue);
@@ -75,7 +81,7 @@ private:
 		Thread(std::function<void(Thread *)> registration) : state(threadState::NOT_INITIALIZED), mutex(), registration(registration), thread([this]() { cacheThreadBody(); }) {
 			std::unique_lock<std::mutex> lock(mutex);
 
-			condition.wait(lock, [this]() { return threadState::INITIALIZED == state; });
+			stateChange.wait(lock, [this]() { return threadState::INITIALIZED == state; });
 		}
 		~Thread(void) {
 			terminateThread();
@@ -85,8 +91,8 @@ private:
 		void setParameters(initFunction init, bodyFunction<M> body, finalFunction final, ThreadSafeBoundedQueue<M> &queue) {
 			std::lock_guard<std::mutex> lock(mutex);
 
-			threadBody = [this, i = std::move(init), b = std::move(body), f = std::move(final), &queue]() { ThreadBody::run(*(&i), *(&b), *(&f), &queue); };
-			condition.notify_one();
+			threadBody = [this, i = std::move(init), b = std::move(body), f = std::move(final), &queue]() { run(*(&i), *(&b), *(&f), &queue); };
+			stateChange.notify_one();
 		}
 	private:
 		enum class threadState { NOT_INITIALIZED, INITIALIZED, FINALIZED, };
@@ -95,22 +101,33 @@ private:
 			std::lock_guard<std::mutex> lock(mutex);
 
 			state = threadState::FINALIZED;
-			condition.notify_one();
+			stateChange.notify_one();
 		}
 		void cacheThreadBody(void) {
 			std::unique_lock<std::mutex> lock(mutex);
 
 			state = threadState::INITIALIZED;
-			condition.notify_one();
+			stateChange.notify_one();
 			for ( ; ; ) {
-				condition.wait(lock);
+				stateChange.wait(lock);
 				if (threadState::FINALIZED == state)
 					return ;
 				threadBody();
 				registration(this);
 			}
 		}
-		std::condition_variable condition;
+		template <typename M>
+		static void run(const initFunction &init, const bodyFunction<M> &body, const finalFunction &final, ThreadSafeBoundedQueue<M> *queue) {
+			init();
+			for ( ; ; ) {
+				auto message = queue->pop();
+				if (queue->isTerminatedMessage(message))
+					break;
+				body(*message);
+			}
+			final();
+		}
+		std::condition_variable stateChange;
 		threadState state;
 		std::mutex mutex;
 		const std::function<void(Thread *)> registration;
@@ -120,7 +137,7 @@ private:
 
 	const unsigned int size;
 	std::mutex mutex;
-	std::condition_variable condition;
+	std::condition_variable threadPutBackInCache;
 	std::queue<std::unique_ptr<Thread>> threads;
 };
 
