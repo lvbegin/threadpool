@@ -69,9 +69,8 @@ public:
 			throw std::runtime_error("too much threads asked to cache");
 		threadPutBackInCache.wait(lock, [this, nbThreads]() { return threads.size() >= nbThreads; } );
 		for (unsigned int i = 0; i < nbThreads; i++) {
-			auto &thread = threads.front();
-			thread->setParameters(init, body, final, queue);
-			thread.release();
+			threads.front()->setParameters(init, body, final, queue);
+			threads.front().release();
 			threads.pop();
 		}
 	}
