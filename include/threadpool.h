@@ -55,10 +55,7 @@ public:
 	void add(M &message) { pendingMessages.push(message); }
 private:
 	void initializeThreads(initFunction init, bodyFunction<M> body, finalFunction final, unsigned int poolSize, ThreadCache &cache) {
-		auto termination = [this, f = std::move(final)]() {
-			f();
-			notifyThreadFinalization();
-		};
+		auto termination = [this, f = std::move(final)]() { f(); notifyThreadFinalization(); };
 		cache.get(poolSize, init, body, termination, pendingMessages);
 
 	}
