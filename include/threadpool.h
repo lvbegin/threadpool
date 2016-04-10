@@ -31,7 +31,6 @@
 #define THREADPOOL_H_
 
 #include <queue.h>
-#include <threadBody.h>
 #include <threadCache.h>
 
 namespace threadpool {
@@ -58,20 +57,23 @@ private:
 	void initializeThreads(initFunction init, bodyFunction<M> body, finalFunction final, unsigned int poolSize, ThreadCache &cache) {
 		auto termination = [this, f = std::move(final)]() {
 			f();
-			std::unique_lock<std::mutex> lock(mutex);
-
-			nbThreads --;
-			if (0 == nbThreads)
-				allMessageTreated.notify_one();
+			notifyThreadFinalization();
 		};
 		cache.get(poolSize, init, body, termination, pendingMessages);
 
 	}
+	void notifyThreadFinalization() {
+		std::unique_lock<std::mutex> lock(mutex);
+
+		nbThreads --;
+		if (0 == nbThreads)
+			allMessageTreated.notify_one();
+	}
+	std::mutex mutex;
+	std::condition_variable allMessageTreated;
 	std::unique_ptr<ThreadCache> cache;
 	ThreadSafeBoundedQueue<M> pendingMessages;
 	unsigned int nbThreads;
-	std::condition_variable allMessageTreated;
-	std::mutex mutex;
 };
 
 static const std::function<void ()> doNothing = []() { };
