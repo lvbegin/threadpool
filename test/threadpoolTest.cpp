@@ -127,7 +127,7 @@ static void test_map(void)
 	bool conclusion = true;
 	std::vector<int> v(100, 0);
 	ThreadCache cache(10);
-	std::vector<int> output = map<int, int>(v, [](int *i) { return (*i) + 1; }, cache);
+	std::vector<int> output = map<int, int>(v, [](const int *i) { return (*i) + 1; }, cache);
 
 	for (size_t i = 0; i < output.size(); i++)
 		if  (1 != output[i]) {
@@ -150,7 +150,7 @@ static void test_map_with_pointers(void)
 
 	for(size_t i = 0; i < 100; i++) {  v.push_back(std::make_unique<int>(0)); };
 
-	std::vector<std::unique_ptr<int>> output = map<std::unique_ptr<int>, std::unique_ptr<int>>(v, [](std::unique_ptr<int> *i) {  return std::make_unique<int>(**i + 1); }, cache);
+	std::vector<std::unique_ptr<int>> output = map<std::unique_ptr<int>, std::unique_ptr<int>>(v, [](const std::unique_ptr<int> *i) {  return std::make_unique<int>(**i + 1); }, cache);
 
 
 	for (size_t i = 0; i < output.size(); i++)

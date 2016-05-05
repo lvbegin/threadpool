@@ -42,7 +42,7 @@ void map(std::vector<M> &v, std::function<void(M *)> f, ThreadCache &cache) {
 }
 
 template<typename M, typename O>
-std::vector<O> map(std::vector<M> &v, std::function<M(M *)> f, ThreadCache &cache) {
+std::vector<O> map(const std::vector<M> &v, std::function<M(const M *)> f, ThreadCache &cache) {
 	std::vector<O> output(v.size());
 	Threadpool<unsigned int> pool(doNothing, [&output, &v, f](unsigned int i) { output[i] = std::move(f(&v[i])); }, doNothing, 10, 10, cache);
 	for (unsigned int i = 0; i < v.size(); i++) { pool.add(i); };
