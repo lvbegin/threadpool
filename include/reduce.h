@@ -39,6 +39,7 @@ M reduce(std::vector<M> &v, std::function<M (std::pair<const M, const M>)> f, Th
 	struct ReduceData {
 		std::pair<const M, const M> value;
 		ThreadSafeBoundedQueue<M> &q;
+		ReduceData(M&& v1, M&& v2, ThreadSafeBoundedQueue<M> &queue) : value(v1, v2), q(queue) {}
 		ReduceData(const M& v1, const M& v2, ThreadSafeBoundedQueue<M> &queue) : value(v1, v2), q(queue) {}
 	};
 
@@ -46,7 +47,7 @@ M reduce(std::vector<M> &v, std::function<M (std::pair<const M, const M>)> f, Th
 	ThreadSafeBoundedQueue<M> q;
 	Threadpool<ReduceData> pool(doNothing, [f] (ReduceData data) { data.q.push(f(data.value)); }, doNothing, 10, 10, cache);
 	for (; pending < v.size() / 2; pending++) { pool.add(ReduceData(v[pending], v[pending + 1], q)); }
-	for (; 1 < pending; pending--) { pool.add(ReduceData(q.pop(), q.pop(), q)); }
+	for (; 1 < pending; pending--) { pool.add(ReduceData(std::move(q.pop()), std::move(q.pop()), q)); }
 	return (0 == v.size() % 2) ? q.pop() : f(std::pair<const M, const M>(q.pop(), v[v.size() - 1]));
 }
 
