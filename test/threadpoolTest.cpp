@@ -35,6 +35,7 @@
 #include <threadCache.h>
 
 #include <map.h>
+#include <reduce.h>
 
 using namespace threadpool;
 
@@ -45,7 +46,7 @@ static void executeThreadPool__no_thread_context(int nbMessages)
 
 	static const std::string message("Hello World");
 	std::atomic<int> messageReceived {0};
-	auto  t = std::make_unique<Threadpool<const std::string>>(doNothing, [&messageReceived](const std::string &m) {assert (m == message); messageReceived++;}, doNothing, 5, nbMessages);
+	auto  t = std::make_unique<Threadpool<std::string>>(doNothing, [&messageReceived](const std::string m) {assert (m == message); messageReceived++;}, doNothing, 5, nbMessages);
 	for (int i = 0; i < nbMessages; i++)
 		t->add(message);
 
@@ -66,7 +67,7 @@ static void executeThreadPool__init_and_final(int nbMessages)
 	auto init = []() { initDone++; };
 	auto final = []() { finalDone++; };
 
-	auto  t = std::make_unique<Threadpool<const std::string>>(init, [](const std::string &) {}, final, 5, nbMessages);
+	auto  t = std::make_unique<Threadpool<std::string>>(init, [](const std::string ) {}, final, 5, nbMessages);
 	for (int i = 0; i < nbMessages; i++)
 		t->add(message);
 
@@ -87,7 +88,7 @@ static void executeThreadPool__use_external_thread_cache(int nbMessages)
 	std::atomic<int> messageReceived {0};
 	auto cache = std::make_unique<ThreadCache>(2);
 
-	auto  t = std::make_unique<Threadpool<const std::string>>(doNothing, [&messageReceived](const std::string &m) {assert (m == message); messageReceived++;}, doNothing, 1, nbMessages, *cache.get());
+	auto  t = std::make_unique<Threadpool<std::string>>(doNothing, [&messageReceived](const std::string m) {assert (m == message); messageReceived++;}, doNothing, 1, nbMessages, *cache.get());
 	for (int i = 0; i < nbMessages; i++)
 		t->add(message);
 
@@ -99,24 +100,78 @@ static void executeThreadPool__use_external_thread_cache(int nbMessages)
 		std::cout << "NOK" << std::endl;
 }
 
-static void test_map(void)
+static void test_map_in_place(void)
 {
-	std::cout << "Test implementation of map operator: ";
+	std::cout << "Test implementation of map in place operator: ";
 
 	bool conclusion = true;
 	std::vector<int> v(100, 0);
-	ThreadCache cache(10); //how to ensure that threads terminated their job ?
-	map<int>(v, [](int &i) { i++;}, cache);
+	ThreadCache cache(10);
+	map<int>(v, [](int *i) { (*i)++; }, cache);
 
-//	for (size_t i = 0; i < v.size(); i++)
-//		std::cout << v[i] << std::endl;
-//
 	for (size_t i = 0; i < v.size(); i++)
 		if  (1 != v[i]) {
 			std::cout << "i = " << i << ", v[i] = " << v[i] << std::endl;
 			conclusion = false;
 		}
 	if (conclusion)
+		std::cout << "OK" << std::endl;
+	else
+		std::cout << "NOK" << std::endl;
+}
+
+static void test_map(void)
+{
+	std::cout << "Test implementation of map operator: ";
+
+	bool conclusion = true;
+	std::vector<int> v(100, 0);
+	ThreadCache cache(10);
+	std::vector<int> output = map<int, int>(v, [](int *i) { return (*i) + 1; }, cache);
+
+	for (size_t i = 0; i < output.size(); i++)
+		if  (1 != output[i]) {
+			std::cout << "i = " << i << ", output[i] = " << output[i] << std::endl;
+			conclusion = false;
+		}
+	if (conclusion)
+		std::cout << "OK" << std::endl;
+	else
+		std::cout << "NOK" << std::endl;
+}
+
+static void test_map_with_pointers(void)
+{
+	std::cout << "Test implementation of map operator: ";
+
+	bool conclusion = true;
+	std::vector<std::unique_ptr<int>> v;
+	ThreadCache cache(10);
+
+	for(size_t i = 0; i < 100; i++) {  v.push_back(std::make_unique<int>(0)); };
+
+	std::vector<std::unique_ptr<int>> output = map<std::unique_ptr<int>, std::unique_ptr<int>>(v, [](std::unique_ptr<int> *i) {  return std::make_unique<int>(**i + 1); }, cache);
+
+
+	for (size_t i = 0; i < output.size(); i++)
+		if  (1 != *output[i]) {
+			std::cout << "i = " << i << ", *output[i] = " << *output[i] << std::endl;
+			conclusion = false;
+		}
+	if (conclusion)
+		std::cout << "OK" << std::endl;
+	else
+		std::cout << "NOK" << std::endl;
+}
+
+static void test_reduce(void)
+{
+	std::cout << "Test implementation of reduce operator: ";
+
+	std::vector<int> v(100, 1);
+	ThreadCache cache(10);
+	const auto response = reduce<int>(v, [](std::pair<const int, const int> v) { return v.first + v.second; }, cache);
+	if (100 == response)
 		std::cout << "OK" << std::endl;
 	else
 		std::cout << "NOK" << std::endl;
@@ -129,6 +184,10 @@ int main()
 	executeThreadPool__init_and_final(nbMessages);
 	executeThreadPool__use_external_thread_cache(nbMessages);
 
+	test_map_in_place();
 	test_map();
+	test_map_with_pointers();
+	test_reduce();
+
 	return EXIT_SUCCESS;
 }

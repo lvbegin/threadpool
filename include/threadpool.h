@@ -27,8 +27,8 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
   */
 
-#ifndef THREADPOOL_H_
-#define THREADPOOL_H_
+#ifndef THREADPOOL_H__
+#define THREADPOOL_H__
 
 #include <queue.h>
 #include <threadCache.h>
@@ -52,7 +52,7 @@ public:
 		pendingMessages.terminate();
 		allMessageTreated.wait(lock, [this]() { return (0 == nbThreads); });
 	}
-	void add(M &message) { pendingMessages.push(message); }
+	void add(M message) { pendingMessages.push(std::move(message)); }
 private:
 	void initializeThreads(initFunction init, bodyFunction<M> body, finalFunction final, unsigned int poolSize, ThreadCache &cache) {
 		auto termination = [this, f = std::move(final)]() { f(); notifyThreadFinalization(); };

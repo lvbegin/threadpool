@@ -27,26 +27,28 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
   */
 
-#ifndef MAP_H__
-#define MAP_H__
+#ifndef REDUCE_H__
+#define REDUCE_H__
 
-#include <threadpool.h>
-#include <algorithm>
+#include <queue>
 
 using namespace threadpool;
 
 template<typename M>
-void map(std::vector<M> &v, std::function<void(M *)> f, ThreadCache &cache) {
-	Threadpool<M *> pool(doNothing, f, doNothing, 10, 10, cache);
-	std::for_each(v.begin(), v.end(), [&pool](M &e) { pool.add(&e); });
+M reduce(std::vector<M> &v, std::function<M (std::pair<const M, const M>)> f, ThreadCache &cache) {
+	struct ReduceData {
+		std::pair<const M, const M> value;
+		ThreadSafeBoundedQueue<M> &q;
+		ReduceData(const M& v1, const M& v2, ThreadSafeBoundedQueue<M> &queue) : value(v1, v2), q(queue) {}
+	};
+
+	unsigned int pending {0};
+	ThreadSafeBoundedQueue<M> q;
+	Threadpool<ReduceData> pool(doNothing, [f] (ReduceData data) { data.q.push(f(data.value)); }, doNothing, 10, 10, cache);
+	for (; pending < v.size() / 2; pending++) { pool.add(ReduceData(v[pending], v[pending + 1], q)); }
+	for (; 1 < pending; pending--) { pool.add(ReduceData(std::move(q.pop()), std::move(q.pop()), q)); }
+	return (0 == v.size() % 2) ? q.pop() : f(std::pair<const M, const M>(q.pop(), v[v.size() - 1]));
 }
 
-template<typename M, typename O>
-std::vector<O> map(std::vector<M> &v, std::function<M(M *)> f, ThreadCache &cache) {
-	std::vector<O> output(v.size());
-	Threadpool<unsigned int> pool(doNothing, [&output, &v, f](unsigned int i) { output[i] = f(&v[i]); }, doNothing, 10, 10, cache);
-	for (unsigned int i = 0; i < v.size(); i++) { pool.add(i); };
-	return output;
-}
 
 #endif

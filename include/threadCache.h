@@ -39,7 +39,7 @@ namespace threadpool {
 typedef std::function<void()> initFunction;
 
 template <typename M>
-using bodyFunction = std::function<void(M &)>;
+using bodyFunction = std::function<void(M)>;
 
 typedef std::function<void()> finalFunction;
 
@@ -118,12 +118,14 @@ private:
 		static void run(const initFunction &init, const bodyFunction<M> &body, const finalFunction &final, ThreadSafeBoundedQueue<M> *queue) {
 			init();
 			for ( ; ; ) {
-				auto message = queue->pop();
-				if (queue->isTerminatedMessage(message))
-					break;
-				body(*message);
+				try {
+					body(std::move(queue->pop()));
+				}
+				catch (ThreadSafeQueueEmpty &e) {
+					final();
+					return ;
+				}
 			}
-			final();
 		}
 		std::condition_variable stateChange;
 		threadState state;

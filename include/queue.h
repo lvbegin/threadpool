@@ -42,48 +42,52 @@ class BoundedQueue {
 public:
 	~BoundedQueue() = default;
 
-	bool push(M &newValue) {
+	bool push(M newValue) {
 		if (maxSize == content.size())
 			return false;
-		content.push(&newValue);
+		content.push(std::move(newValue));
 		return true;
 	}
-	M *pop(void) {
-		if (0 == content.size())
-			return NULL;
-		auto value = content.front();
+	M pop(void) {
+		if (isEmpty())
+			throw std::runtime_error("cannot pop on an empty queue");
+		auto value = std::move(content.front());
 		content.pop();
 		return value;
 	}
+	bool isEmpty(void) { return (0 == content.size()); }
 protected:
 	BoundedQueue(size_t maxValues) : content(), maxSize(maxValues) { }
 private:
-	std::queue<M *> content;
+	std::queue<M> content;
 	const size_t maxSize;
 };
+
+class ThreadSafeQueueEmpty : public std::exception { };
 
 template <typename M>
 class ThreadSafeBoundedQueue : private BoundedQueue<M> {
 public:
-	ThreadSafeBoundedQueue(size_t maxValues) : BoundedQueue<M>(maxValues), isTerminated(false) { }
+	ThreadSafeBoundedQueue(size_t maxValues = 50) : BoundedQueue<M>(maxValues), isTerminated(false) { }
 	~ThreadSafeBoundedQueue() = default;
 
-	void push(M &newValue) {
+	void push(M newValue) {
 		std::unique_lock<std::mutex> lock(mutex);
 
-		queueNotFull.wait(lock, [this, &newValue]() { return isTerminated || BoundedQueue<M>::push(newValue); });
+		queueNotFull.wait(lock, [this, &newValue]() { return isTerminated || BoundedQueue<M>::push(std::move(newValue)); });
 		if (isTerminated)
 			throw std::runtime_error("Cannot push in terminated queue.");
 		queueNotEmpty.notify_one();
 	}
-	M *pop(void) {
+	M pop(void) {
 		std::unique_lock<std::mutex> lock(mutex);
 
-		M *value;
-		queueNotEmpty.wait(lock, [this, &value]() { value = BoundedQueue<M>::pop(); return (nullptr != value || isTerminated); });
+		queueNotEmpty.wait(lock, [this]() { return !BoundedQueue<M>::isEmpty() || isTerminated; });
+		if (BoundedQueue<M>::isEmpty())
+			throw ThreadSafeQueueEmpty();
 		if (!isTerminated)
 			queueNotFull.notify_one();
-		return value;
+		return BoundedQueue<M>::pop();
 	}
 	void terminate() {
 		std::lock_guard<std::mutex> lock(mutex);
@@ -91,9 +95,6 @@ public:
 		isTerminated = true;
 		queueNotEmpty.notify_all();
 		queueNotFull.notify_all();
-	}
-	static bool isTerminatedMessage(const M *message) {
-		return (nullptr == message);
 	}
 
 private:
