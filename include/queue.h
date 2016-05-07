@@ -82,7 +82,7 @@ public:
 	M pop(void) {
 		std::unique_lock<std::mutex> lock(mutex);
 
-		queueNotEmpty.wait(lock, [this]() { return !BoundedQueue<M>::isEmpty() || isTerminated; });
+		queueNotEmpty.wait(lock, [this]() { return isTerminated || !BoundedQueue<M>::isEmpty(); });
 		if (BoundedQueue<M>::isEmpty())
 			throw ThreadSafeQueueEmpty();
 		if (!isTerminated)
