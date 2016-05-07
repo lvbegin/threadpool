@@ -35,7 +35,7 @@
 using namespace threadpool;
 
 template<typename M>
-M reduce(const std::vector<M> &v, M initialValue, std::function<M (std::pair<const M, const M>)> f, ThreadCache &cache) {
+M associativeReduce(const std::vector<M> &v, M initialValue, std::function<M (std::pair<const M, const M>)> f, ThreadCache &cache) {
 	struct ReduceData {
 		std::pair<const M, const M> value;
 		ThreadSafeBoundedQueue<M> &q;
