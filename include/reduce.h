@@ -35,20 +35,22 @@
 using namespace threadpool;
 
 template<typename M>
-M reduce(const std::vector<M> &v, std::function<M (std::pair<const M, const M>)> f, ThreadCache &cache) {
+M reduce(const std::vector<M> &v, M initialValue, std::function<M (std::pair<const M, const M>)> f, ThreadCache &cache) {
 	struct ReduceData {
 		std::pair<const M, const M> value;
 		ThreadSafeBoundedQueue<M> &q;
 		ReduceData(M&& v1, M&& v2, ThreadSafeBoundedQueue<M> &queue) : value(v1, v2), q(queue) {}
 		ReduceData(const M& v1, const M& v2, ThreadSafeBoundedQueue<M> &queue) : value(v1, v2), q(queue) {}
 	};
-
-	unsigned int pending {0};
+	if (0 == v.size())
+		return initialValue;
+	unsigned int pending {1};
 	ThreadSafeBoundedQueue<M> q;
 	Threadpool<ReduceData> pool(doNothing, [f] (ReduceData data) { data.q.push(f(std::move(data.value))); }, doNothing, 10, 10, cache);
+	pool.add(ReduceData(v[0], std::move(initialValue), q));
 	for (; pending < v.size() / 2; pending++) { pool.add(ReduceData(v[pending], v[pending + 1], q)); }
 	for (; 1 < pending; pending--) { pool.add(ReduceData(std::move(q.pop()), std::move(q.pop()), q)); }
-	return (0 == v.size() % 2) ? q.pop() : f(std::pair<const M, const M>(q.pop(), v[v.size() - 1]));
+	return (0 == (v.size() + 1) % 2) ? q.pop() : f(std::pair<const M, const M>(q.pop(), v[v.size() - 1]));
 }
 
 

@@ -170,8 +170,21 @@ static void test_reduce(void)
 
 	std::vector<int> v(100, 1);
 	ThreadCache cache(10);
-	const auto response = reduce<int>(v, [](std::pair<const int, const int> v) { return v.first + v.second; }, cache);
+	const auto response = reduce<int>(v, 0, [](std::pair<const int, const int> v) { return v.first + v.second; }, cache);
 	if (100 == response)
+		std::cout << "OK" << std::endl;
+	else
+		std::cout << "NOK" << std::endl;
+}
+
+static void test_reduce_with_one_element(void)
+{
+	std::cout << "Test implementation of reduce operator: ";
+
+	std::vector<int> v(1, 1);
+	ThreadCache cache(10);
+	const auto response = reduce<int>(v, 0, [](std::pair<const int, const int> v) { return v.first + v.second; }, cache);
+	if (1 == response)
 		std::cout << "OK" << std::endl;
 	else
 		std::cout << "NOK" << std::endl;
@@ -188,6 +201,7 @@ int main()
 	test_map();
 	test_map_with_pointers();
 	test_reduce();
+	test_reduce_with_one_element();
 
 	return EXIT_SUCCESS;
 }
