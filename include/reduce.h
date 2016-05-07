@@ -45,7 +45,7 @@ M reduce(const std::vector<M> &v, std::function<M (std::pair<const M, const M>)>
 
 	unsigned int pending {0};
 	ThreadSafeBoundedQueue<M> q;
-	Threadpool<ReduceData> pool(doNothing, [f] (ReduceData data) { data.q.push(f(data.value)); }, doNothing, 10, 10, cache);
+	Threadpool<ReduceData> pool(doNothing, [f] (ReduceData data) { data.q.push(f(std::move(data.value))); }, doNothing, 10, 10, cache);
 	for (; pending < v.size() / 2; pending++) { pool.add(ReduceData(v[pending], v[pending + 1], q)); }
 	for (; 1 < pending; pending--) { pool.add(ReduceData(std::move(q.pop()), std::move(q.pop()), q)); }
 	return (0 == v.size() % 2) ? q.pop() : f(std::pair<const M, const M>(q.pop(), v[v.size() - 1]));
