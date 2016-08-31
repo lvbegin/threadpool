@@ -39,7 +39,8 @@
 
 using namespace threadpool;
 
-static void executeThreadPool__no_thread_context(int nbMessages)
+static const int nbMessages = 100000;
+static unsigned int executeThreadPool__no_thread_context(void)
 {
 
 	std::cout << "Execute threadpool without thread context: ";
@@ -51,13 +52,16 @@ static void executeThreadPool__no_thread_context(int nbMessages)
 		t->add(message);
 
 	t.reset(nullptr);
-	if (messageReceived == nbMessages)
+	if (messageReceived == nbMessages) {
 		std::cout << "OK" << std::endl;
-	else
+                return 0;
+        } else {
 		std::cout << "NOK" << std::endl;
+                return 1;
+        }
 }
 
-static void executeThreadPool__init_and_final(int nbMessages)
+static unsigned int executeThreadPool__init_and_final(void)
 {
 	std::cout << "Execute threadpool with init and final functions but without thread context: ";
 	static const std::string message("Hello world");
@@ -72,15 +76,16 @@ static void executeThreadPool__init_and_final(int nbMessages)
 		t->add(message);
 
 	t.reset(nullptr);
-	if (5 == initDone.load() && 5 == finalDone.load())
+	if (5 == initDone.load() && 5 == finalDone.load()) {
 		std::cout << "OK" << std::endl;
-	else
+                return 0;
+	} else { 
 		std::cout << "NOK" << std::endl;
-
-
+                return 1;
+        }
 }
 
-static void executeThreadPool__use_external_thread_cache(int nbMessages)
+static unsigned int executeThreadPool__use_external_thread_cache(void)
 {
 	std::cout << "Execute threadpool with  external thread cache: ";
 
@@ -94,13 +99,16 @@ static void executeThreadPool__use_external_thread_cache(int nbMessages)
 
 	t.reset(nullptr);
 	cache.reset(nullptr);
-	if (messageReceived == nbMessages)
+	if (messageReceived == nbMessages) {
 		std::cout << "OK" << std::endl;
-	else
+                return 0;
+	} else {
 		std::cout << "NOK" << std::endl;
+                return 1;
+        }
 }
 
-static void test_map_in_place(void)
+static unsigned int test_map_in_place(void)
 {
 	std::cout << "Test implementation of map in place operator: ";
 
@@ -114,13 +122,16 @@ static void test_map_in_place(void)
 			std::cout << "i = " << i << ", v[i] = " << v[i] << std::endl;
 			conclusion = false;
 		}
-	if (conclusion)
+	if (conclusion) {
 		std::cout << "OK" << std::endl;
-	else
+                return 0;
+	} else {
 		std::cout << "NOK" << std::endl;
+                return 1;
+        }
 }
 
-static void test_map(void)
+static unsigned int test_map(void)
 {
 	std::cout << "Test implementation of map operator: ";
 
@@ -134,13 +145,16 @@ static void test_map(void)
 			std::cout << "i = " << i << ", output[i] = " << output[i] << std::endl;
 			conclusion = false;
 		}
-	if (conclusion)
+	if (conclusion) {
 		std::cout << "OK" << std::endl;
-	else
+                return 0;
+	} else {
 		std::cout << "NOK" << std::endl;
+                return 1;
+        }
 }
 
-static void test_map_with_pointers(void)
+static unsigned int test_map_with_pointers(void)
 {
 	std::cout << "Test implementation of map operator: ";
 
@@ -158,50 +172,71 @@ static void test_map_with_pointers(void)
 			std::cout << "i = " << i << ", *output[i] = " << *output[i] << std::endl;
 			conclusion = false;
 		}
-	if (conclusion)
+	if (conclusion) {
 		std::cout << "OK" << std::endl;
-	else
+                return 0;
+	} else {
 		std::cout << "NOK" << std::endl;
+                return 1;
+        }
 }
 
-static void test_associativeReduce(void)
+static unsigned int test_associativeReduce(void)
 {
 	std::cout << "Test implementation of associativeReduce operator: ";
 
 	std::vector<int> v(100, 1);
 	ThreadCache cache(10);
 	const auto response = associativeReduce<int>(v, 0, [](std::pair<const int, const int> v) { return v.first + v.second; }, cache);
-	if (100 == response)
+	if (100 == response) {
 		std::cout << "OK" << std::endl;
-	else
+                return 0;
+	} else {
 		std::cout << "NOK" << std::endl;
+                return 1;
+        }
 }
 
-static void test_associativeReduce_with_one_element(void)
+static unsigned int test_associativeReduce_with_one_element(void)
 {
 	std::cout << "Test implementation of associativeReduce operator: ";
 
 	std::vector<int> v(1, 1);
 	ThreadCache cache(10);
 	const auto response = associativeReduce<int>(v, 0, [](std::pair<const int, const int> v) { return v.first + v.second; }, cache);
-	if (1 == response)
+	if (1 == response) {
 		std::cout << "OK" << std::endl;
-	else
+                return 0;
+	} else {
 		std::cout << "NOK" << std::endl;
+                return 1;
+        }
+}
+
+
+typedef unsigned int (*test_t)(void);
+static unsigned int execute_tests(const test_t tests[]) {
+       unsigned int failure = 0;
+       while (nullptr != *tests) {
+                failure += (*tests)();
+                tests++;
+       }
+       return failure;
 }
 
 int main()
 {
-	static const int nbMessages = 100000;
-	executeThreadPool__no_thread_context(nbMessages);
-	executeThreadPool__init_and_final(nbMessages);
-	executeThreadPool__use_external_thread_cache(nbMessages);
+        static const test_t tests[] = {
+	        executeThreadPool__no_thread_context,
+	        executeThreadPool__init_and_final,
+	        executeThreadPool__use_external_thread_cache,
 
-	test_map_in_place();
-	test_map();
-	test_map_with_pointers();
-	test_associativeReduce();
-	test_associativeReduce_with_one_element();
-
-	return EXIT_SUCCESS;
+	        test_map_in_place,
+	        test_map,
+	        test_map_with_pointers,
+	        test_associativeReduce,
+	        test_associativeReduce_with_one_element,
+       	        nullptr,
+        };
+	return execute_tests(tests);
 }
