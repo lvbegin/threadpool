@@ -11,6 +11,7 @@ AC_CONFIG_FILES([Makefile])
 AC_PROG_CXX
 AC_PROG_CC
 AM_INIT_AUTOMAKE
+AX_CXX_COMPILE_STDCXX_14([noext], [mandatory])
 # Checks for libraries.
 AC_CHECK_LIB(pthread, pthread_create)
 # Checks for header files.
@@ -19,7 +20,6 @@ AC_CHECK_LIB(pthread, pthread_create)
 AC_CHECK_HEADER_STDBOOL
 AC_TYPE_SIZE_T
 AC_LANG([C++])
-CXXFLAGS='-Wall -std=c++14'
 # Checks for library functions.
 
 AC_OUTPUT
